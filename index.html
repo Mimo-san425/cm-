@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>cm ⇄ mm 変換プリント</title>
+<title>cm ⇄ mm 変換（タイマー＋毎回ランダム）</title>
 <style>
   :root { --b:#222; --g:#666; --bg:#fafafa; --card:#fff; --line:#ddd; }
   body{ margin:0; font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; color:var(--b); background:var(--bg); }
@@ -11,48 +11,55 @@
   h1{ margin:0 0 6px; font-size:20px; }
   .sub{ color:var(--g); font-size:13px; }
   .wrap{ max-width:980px; margin:0 auto; padding:14px; }
-  .tools{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:12px 0 4px; }
+  .tools{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:12px 0 10px; }
   button{ cursor:pointer; border:1px solid var(--line); background:#fff; padding:10px 12px; border-radius:10px; font-size:14px; }
   button:hover{ background:#f5f5f5; }
+  button:disabled{ opacity:.45; cursor:not-allowed; }
   .pill{ border:1px dashed var(--line); padding:8px 10px; border-radius:12px; background:#fff; font-size:14px; }
-  .grid{ display:grid; grid-template-columns:1fr; gap:14px; }
-  @media (min-width: 860px){ .grid{ grid-template-columns:1fr 1fr; } }
   .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
-  .card h2{ margin:0 0 8px; font-size:16px; }
-  .note{ margin:0 0 12px; color:var(--g); font-size:13px; }
+  .note{ margin:0 0 10px; color:var(--g); font-size:13px; }
   table{ width:100%; border-collapse:collapse; }
-  td{ padding:10px 6px; border-top:1px solid var(--line); vertical-align:middle; font-size:15px; }
-  td:first-child{ width:70%; }
-  .q{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  td{ padding:10px 6px; border-top:1px solid var(--line); vertical-align:middle; font-size:16px; }
+  .q{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   input[type="text"]{
-    width:90px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; font-size:16px;
+    width:110px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; font-size:18px;
   }
   .unit{ color:var(--g); }
-  .mark{ min-width:40px; text-align:center; font-weight:700; }
+  .mark{ min-width:44px; text-align:center; font-weight:800; font-size:18px; }
   .ok{ color:#0a7b34; }
   .ng{ color:#b00020; }
-  .ans{ display:none; color:#0a7b34; font-weight:600; }
-  .show-answers .ans{ display:inline; }
-  .footer{ margin:14px 0 40px; color:var(--g); font-size:12px; }
+
+  .statusbar{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    background:#fff; border:1px solid var(--line); border-radius:14px; padding:10px 12px;
+  }
+  .timer{ font-weight:900; font-size:20px; }
+  .timer.running{ color:#b00020; }
+  .resultBox{
+    display:none;
+    margin-top:10px;
+    background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px;
+  }
+  .resultBox.show{ display:block; }
   .small{ font-size:12px; color:var(--g); }
-  .namebox{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .namebox{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
   .namebox input{ width:220px; }
-  /* 印刷向け */
+
+  .locked input.answer{ background:#f1f1f1; }
+
   @media print{
-    header, .tools, .footer{ display:none; }
+    header, .tools, .statusbar, .resultBox{ display:none !important; }
     body{ background:#fff; }
     .wrap{ max-width:none; padding:0; }
-    .grid{ grid-template-columns:1fr 1fr; gap:10px; }
     .card{ border:1px solid #000; border-radius:0; }
     input{ border:1px solid #000; }
-    .ans{ display:none !important; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>cm ⇄ mm 変換プリント</h1>
-  <div class="sub">ポイント：1cm＝10mm（cm→mm は10をかける / mm→cm は10でわる）</div>
+  <h1>cm ⇄ mm 変換（タイマー＋毎回ランダム）</h1>
+  <div class="sub">スタートすると問題が自動で作られます。時間終了で自動採点＆正解率表示。</div>
 </header>
 
 <div class="wrap" id="app">
@@ -61,127 +68,87 @@
     <div class="pill">日付：<input type="text" placeholder="（例）2/1" aria-label="日付"></div>
   </div>
 
+  <div class="statusbar" role="status" aria-live="polite">
+    <span class="pill">モード：
+      <label><input type="radio" name="mode" value="30" checked> 30秒</label>
+      <label style="margin-left:10px;"><input type="radio" name="mode" value="60"> 60秒</label>
+    </span>
+    <span class="pill">のこり： <span id="timer" class="timer">—</span></span>
+    <button id="startBtn">スタート</button>
+    <button id="stopBtn" disabled>中断（採点）</button>
+    <button id="newBtn">問題を作り直す</button>
+    <span class="pill small">Enterで次へ</span>
+  </div>
+
+  <div id="resultBox" class="resultBox">
+    <div><b>結果</b></div>
+    <div style="margin-top:6px; line-height:1.9;">
+      正解：<b><span id="rCorrect">0</span></b> 問　
+      ／ 解答：<b><span id="rAttempted">0</span></b> 問　
+      ／ 全問題：<b><span id="rTotal">0</span></b> 問
+      <br>
+      正解率（解答した中）：<b><span id="rAccAttempted">0</span>%</b>
+      <br>
+      正解率（全問題中）：<b><span id="rAccTotal">0</span>%</b>
+    </div>
+    <div class="small" style="margin-top:6px;">
+      ※空らんは「解答した中」には数えません。<br>
+      ※「全問題中」は空らんも×として扱います（速さチャレンジ向け）。
+    </div>
+  </div>
+
+  <section class="card" style="margin-top:12px;">
+    <div class="note">
+      ルール：<b>1cm＝10mm</b>（cm→mm は×10、mm→cm は÷10）
+    </div>
+    <table>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="pill" style="margin-top:12px;">
+      （手動採点の表示）正解：<span id="score">—</span>
+      <span class="small">※時間終了時は自動で結果が出ます</span>
+    </div>
+  </section>
+
   <div class="tools">
-    <button id="checkBtn">答え合わせ（○×）</button>
-    <button id="toggleAnsBtn">答えを表示</button>
+    <button id="checkBtn">手動で答え合わせ（○×）</button>
     <button id="resetBtn">リセット</button>
     <button onclick="window.print()">印刷</button>
-    <span class="pill small">※小数は使いません（整数だけ）。</span>
-  </div>
-
-  <div class="grid">
-    <!-- cm -> mm -->
-    <section class="card">
-      <h2>① cm → mm</h2>
-      <p class="note">センチメートルの数 × 10 ＝ ミリメートル</p>
-      <table>
-        <tbody>
-          <tr>
-            <td><div class="q">3<span class="unit">cm</span> ＝ <input data-ans="30" inputmode="numeric" /> <span class="unit">mm</span> <span class="ans">（30）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">5<span class="unit">cm</span> ＝ <input data-ans="50" inputmode="numeric" /> <span class="unit">mm</span> <span class="ans">（50）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">8<span class="unit">cm</span> ＝ <input data-ans="80" inputmode="numeric" /> <span class="unit">mm</span> <span class="ans">（80）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">12<span class="unit">cm</span> ＝ <input data-ans="120" inputmode="numeric" /> <span class="unit">mm</span> <span class="ans">（120）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">20<span class="unit">cm</span> ＝ <input data-ans="200" inputmode="numeric" /> <span class="unit">mm</span> <span class="ans">（200）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="note">〔かんがえてみよう〕えんぴつが 7cm。mm では？ → <b>（　　　）mm</b>　
-        <input data-ans="70" inputmode="numeric" /> <span class="ans">（70）</span>
-      </p>
-      <div class="mark" data-mark style="text-align:left;"></div>
-    </section>
-
-    <!-- mm -> cm -->
-    <section class="card">
-      <h2>② mm → cm</h2>
-      <p class="note">ミリメートルの数 ÷ 10 ＝ センチメートル</p>
-      <table>
-        <tbody>
-          <tr>
-            <td><div class="q">20<span class="unit">mm</span> ＝ <input data-ans="2" inputmode="numeric" /> <span class="unit">cm</span> <span class="ans">（2）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">50<span class="unit">mm</span> ＝ <input data-ans="5" inputmode="numeric" /> <span class="unit">cm</span> <span class="ans">（5）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">80<span class="unit">mm</span> ＝ <input data-ans="8" inputmode="numeric" /> <span class="unit">cm</span> <span class="ans">（8）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">120<span class="unit">mm</span> ＝ <input data-ans="12" inputmode="numeric" /> <span class="unit">cm</span> <span class="ans">（12）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">300<span class="unit">mm</span> ＝ <input data-ans="30" inputmode="numeric" /> <span class="unit">cm</span> <span class="ans">（30）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="note">〔かんがえてみよう〕ものさしが 100mm。cm では？ → <b>（　　　）cm</b>　
-        <input data-ans="10" inputmode="numeric" /> <span class="ans">（10）</span>
-      </p>
-      <div class="mark" data-mark style="text-align:left;"></div>
-    </section>
-
-    <!-- Mix -->
-    <section class="card" style="grid-column: 1 / -1;">
-      <h2>③ まとめ（ミックス）</h2>
-      <p class="note">どちらに直すか、単位をよく見よう。</p>
-      <table>
-        <tbody>
-          <tr>
-            <td><div class="q">6<span class="unit">cm</span> ＝ <input data-ans="60" inputmode="numeric" /> <span class="unit">mm</span> <span class="ans">（60）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">70<span class="unit">mm</span> ＝ <input data-ans="7" inputmode="numeric" /> <span class="unit">cm</span> <span class="ans">（7）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">14<span class="unit">cm</span> ＝ <input data-ans="140" inputmode="numeric" /> <span class="unit">mm</span> <span class="ans">（140）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-          <tr>
-            <td><div class="q">90<span class="unit">mm</span> ＝ <input data-ans="9" inputmode="numeric" /> <span class="unit">cm</span> <span class="ans">（9）</span></div></td>
-            <td class="mark" data-mark></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="pill" style="margin-top:12px;">
-        得点：<span id="score">—</span>
-        <span class="small">（空らんは数えません）</span>
-      </div>
-    </section>
-  </div>
-
-  <div class="footer">
-    ・授業用メモ：答え合わせは「答え合わせ（○×）」、答えの文字は「答えを表示」で出ます。印刷は上の「印刷」ボタン。<br>
-    ・入力は数字だけ（半角/全角どちらでもOKにしています）。
+    <span class="pill small">問題数は下の設定で増やせます</span>
   </div>
 </div>
 
 <script>
 (() => {
   const app = document.getElementById('app');
-  const inputs = Array.from(app.querySelectorAll('input[data-ans]'));
-  const marks = Array.from(app.querySelectorAll('[data-mark]'));
+  const tbody = document.getElementById('tbody');
   const scoreEl = document.getElementById('score');
+
+  const resultBox = document.getElementById('resultBox');
+  const rCorrect = document.getElementById('rCorrect');
+  const rAttempted = document.getElementById('rAttempted');
+  const rTotal = document.getElementById('rTotal');
+  const rAccAttempted = document.getElementById('rAccAttempted');
+  const rAccTotal = document.getElementById('rAccTotal');
+
+  const timerEl = document.getElementById('timer');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const newBtn = document.getElementById('newBtn');
+
+  // ======= 設定（ここをいじると難易度調整できます） =======
+  const NUM_QUESTIONS = 24;  // 30秒なら24前後が目安（増減OK）
+  const RATIO_CM_TO_MM = 0.55; // この割合で cm→mm を増やす（残りは mm→cm）
+  const CM_MIN = 1;
+  const CM_MAX = 30;         // cm→mm の cm 範囲（答えは10〜300mm）
+  const MM_MIN = 10;
+  const MM_MAX = 300;        // mm→cm の mm 範囲（10の倍数にする）
+  // ========================================================
+
+  let inputs = [];
+  let tickId = null;
+  let endAt = null;
+  let running = false;
 
   const normalizeNumber = (s) => {
     if (s == null) return "";
@@ -190,36 +157,68 @@
     return z2h.trim();
   };
 
+  const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+  const shuffle = (arr) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
   const clearMarks = () => {
-    marks.forEach(m => { m.textContent = ""; m.classList.remove('ok','ng'); });
+    Array.from(app.querySelectorAll('[data-mark]')).forEach(m => {
+      m.textContent = "";
+      m.classList.remove('ok','ng');
+    });
     scoreEl.textContent = "—";
   };
 
-  const check = () => {
-    let correct = 0, attempted = 0;
+  const lockInputs = (locked) => {
+    if (locked) app.classList.add('locked');
+    else app.classList.remove('locked');
+    inputs.forEach(i => i.disabled = !!locked);
+  };
 
-    // 入力ごとに対応する mark を順に使う
-    //（プリント風にするため、各行の右に1つ○×が出ます）
-    // ただし「かんがえてみよう」は行の下の mark に表示
+  const setTimerText = (sec) => {
+    if (sec == null) { timerEl.textContent = "—"; return; }
+    timerEl.textContent = `${sec}s`;
+  };
+
+  const getModeSeconds = () => {
+    const v = document.querySelector('input[name="mode"]:checked')?.value || "30";
+    return parseInt(v, 10);
+  };
+
+  const hideResult = () => resultBox.classList.remove('show');
+
+  const showResult = (stats) => {
+    rCorrect.textContent = String(stats.correct);
+    rAttempted.textContent = String(stats.attempted);
+    rTotal.textContent = String(stats.total);
+    rAccAttempted.textContent = String(stats.accAttempted);
+    rAccTotal.textContent = String(stats.accTotal);
+    resultBox.classList.add('show');
+  };
+
+  const compute = () => {
     clearMarks();
 
-    // markの割当：各 input の近くにある [data-mark] を探す
+    let correct = 0, attempted = 0;
+    const total = inputs.length;
+
     inputs.forEach((inp) => {
       const user = normalizeNumber(inp.value);
       const ans  = normalizeNumber(inp.dataset.ans);
+      const mark = inp.closest('tr')?.querySelector('[data-mark]');
+
       if (user === "") return;
 
       attempted++;
-
       const isOK = (user === ans);
       if (isOK) correct++;
 
-      // 最寄りの mark を探す（同じカード内の近いところ）
-      let mark = inp.closest('tr')?.querySelector('[data-mark]');
-      if (!mark) {
-        // tr じゃない場合（かんがえてみよう）
-        mark = inp.parentElement?.parentElement?.querySelector('[data-mark]') || inp.closest('.card')?.querySelector('[data-mark]');
-      }
       if (mark) {
         mark.textContent = isOK ? "○" : "×";
         mark.classList.add(isOK ? 'ok' : 'ng');
@@ -227,32 +226,175 @@
     });
 
     scoreEl.textContent = attempted === 0 ? "—" : `${correct} / ${attempted}`;
+
+    const accAttempted = attempted === 0 ? 0 : Math.round((correct / attempted) * 100);
+    const accTotal = total === 0 ? 0 : Math.round((correct / total) * 100);
+
+    return { correct, attempted, total, accAttempted, accTotal };
   };
 
-  document.getElementById('checkBtn').addEventListener('click', check);
+  const finish = () => {
+    if (!running) return;
+    running = false;
 
-  document.getElementById('toggleAnsBtn').addEventListener('click', (e) => {
-    const showing = app.classList.toggle('show-answers');
-    e.currentTarget.textContent = showing ? "答えを非表示" : "答えを表示";
-  });
+    if (tickId) clearInterval(tickId);
+    tickId = null;
+    endAt = null;
 
-  document.getElementById('resetBtn').addEventListener('click', () => {
-    inputs.forEach(i => i.value = "");
-    app.classList.remove('show-answers');
-    document.getElementById('toggleAnsBtn').textContent = "答えを表示";
+    timerEl.classList.remove('running');
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+
+    const stats = compute();
+    showResult(stats);
+    lockInputs(true);
+  };
+
+  const buildQuestions = () => {
+    // タイマー動作中は作り直し禁止（事故防止）
+    if (running) return;
+
+    hideResult();
     clearMarks();
+
+    const qs = [];
+    const needCm = Math.round(NUM_QUESTIONS * RATIO_CM_TO_MM);
+    const needMm = NUM_QUESTIONS - needCm;
+
+    // 重複を減らすために「問題の文字列」でユニーク管理
+    const used = new Set();
+
+    // cm -> mm
+    while (qs.length < needCm) {
+      const cm = randInt(CM_MIN, CM_MAX);
+      const mm = cm * 10;
+      const key = `cm:${cm}`;
+      if (used.has(key)) continue;
+      used.add(key);
+
+      qs.push({
+        promptLeft: `${cm}`,
+        unitLeft: `cm`,
+        unitRight: `mm`,
+        ans: String(mm)
+      });
+    }
+
+    // mm -> cm（10の倍数）
+    while (qs.length < NUM_QUESTIONS) {
+      const mm = randInt(MM_MIN/10, MM_MAX/10) * 10;
+      const cm = mm / 10;
+      const key = `mm:${mm}`;
+      if (used.has(key)) continue;
+      used.add(key);
+
+      qs.push({
+        promptLeft: `${mm}`,
+        unitLeft: `mm`,
+        unitRight: `cm`,
+        ans: String(cm)
+      });
+    }
+
+    shuffle(qs);
+
+    // DOMに描画
+    tbody.innerHTML = "";
+    qs.forEach((q, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div class="q">
+            <b>${idx + 1}.</b>
+            <span>${q.promptLeft}</span><span class="unit">${q.unitLeft}</span>
+            <span>＝</span>
+            <input class="answer" data-ans="${q.ans}" inputmode="numeric" />
+            <span class="unit">${q.unitRight}</span>
+          </div>
+        </td>
+        <td class="mark" data-mark></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    inputs = Array.from(app.querySelectorAll('input.answer[data-ans]'));
+
+    // Enterで次へ
+    inputs.forEach((inp, i) => {
+      inp.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          const next = inputs[i + 1];
+          if (next && !next.disabled) next.focus();
+        }
+      });
+    });
+
+    // 初期は入力OK
+    lockInputs(false);
+
+    // 先頭にフォーカス
+    setTimeout(() => inputs[0]?.focus(), 50);
+  };
+
+  const start = () => {
+    // スタート時に毎回問題を作る（＝毎回変わる）
+    buildQuestions();
+    // 入力を空に
+    inputs.forEach(i => i.value = "");
+    hideResult();
+    clearMarks();
+    lockInputs(false);
+
+    const sec = getModeSeconds();
+    endAt = Date.now() + sec * 1000;
+
+    running = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    timerEl.classList.add('running');
+
+    const update = () => {
+      const leftMs = endAt - Date.now();
+      const leftSec = Math.max(0, Math.ceil(leftMs / 1000));
+      setTimerText(leftSec);
+      if (leftMs <= 0) finish();
+    };
+
+    update();
+    tickId = setInterval(update, 100);
+  };
+
+  const resetAll = () => {
+    if (tickId) clearInterval(tickId);
+    tickId = null;
+    endAt = null;
+    running = false;
+
+    setTimerText(null);
+    timerEl.classList.remove('running');
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+
+    hideResult();
+    clearMarks();
+    buildQuestions(); // リセットでも問題を変える
+  };
+
+  // --- Buttons ---
+  document.getElementById('checkBtn').addEventListener('click', () => {
+    const stats = compute();
+    showResult(stats);
   });
 
-  // Enterで次の入力へ（iPadでも地味に便利）
-  inputs.forEach((inp, idx) => {
-    inp.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') {
-        ev.preventDefault();
-        const next = inputs[idx + 1];
-        if (next) next.focus();
-      }
-    });
-  });
+  document.getElementById('resetBtn').addEventListener('click', resetAll);
+  startBtn.addEventListener('click', start);
+  stopBtn.addEventListener('click', finish);
+  newBtn.addEventListener('click', buildQuestions);
+
+  // 初期：最初から問題を1回作っておく（開いた時点でも変わる）
+  buildQuestions();
+  setTimerText(null);
 })();
 </script>
 </body>
