@@ -2,13 +2,12 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>図形ウォンテッド！</title>
+    <title>図形をさがせ！Plus</title>
     <style>
         body { text-align: center; font-family: 'Arial Black', sans-serif; background: #1a1a1a; color: white; margin: 0; overflow: hidden; }
         .header { background: #333; padding: 15px; border-bottom: 4px solid #555; height: 80px; }
-        #game-board { position: relative; width: 95vw; height: calc(100vh - 150px); margin: 10px auto; background: #222; border-radius: 10px; display: none; }
+        #game-board { position: relative; width: 95vw; height: calc(100vh - 180px); margin: 10px auto; background: #222; border-radius: 10px; display: none; }
         
-        /* スタート画面 */
         #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
         .start-btn { padding: 20px 50px; font-size: 30px; background: #ff4757; color: white; border: none; border-radius: 50px; cursor: pointer; transition: 0.2s; }
         .start-btn:hover { background: #ff6b81; transform: scale(1.1); }
@@ -17,18 +16,21 @@
         .target-symbol { display: inline-block; vertical-align: middle; width: 40px; height: 40px; }
         #timer { color: #ff4757; font-size: 30px; }
 
-        /* 各図形の描画スタイル */
+        /* 図形ごとのスタイル定義 */
         .circle { border-radius: 50%; }
+        .square { width: 45px; height: 45px; }
+        .rect { width: 65px !important; height: 35px !important; }
+        .hexagon { clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); }
         .star { clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
-        .diamond { transform: rotate(45deg); }
+        .diamond { transform: rotate(45deg); width: 35px; height: 35px; }
         .triangle { width: 0 !important; height: 0 !important; background: transparent !important; }
     </style>
 </head>
 <body>
 
 <div id="start-screen">
-    <h1>図形ウォンテッド！</h1>
-    <p>指定された図形を1つだけ探そう</p>
+    <h1>図形をさがせ！</h1>
+    <p>六角形や長方形もまざっているぞ！</p>
     <button class="start-btn" onclick="startGame()">ゲームスタート！</button>
 </div>
 
@@ -46,16 +48,17 @@
     const timerEl = document.getElementById('timer');
     const levelEl = document.getElementById('level');
 
-    // 色かぶりを防ぐため、形ごとに完全に違う色を固定
+    // 図形設定を拡張
     const shapeConfigs = [
-        { id: 'circle', color: '#FF0000', name: 'あかまる' },
-        { id: 'square', color: '#00FF00', name: 'みどりしかく' },
-        { id: 'triangle', color: '#FFFF00', name: 'きいろさんかく' },
-        { id: 'star', color: '#FF00FF', name: 'ぴんくほし' },
-        { id: 'diamond', color: '#00FFFF', name: 'みずいろダイヤ' }
+        { id: 'circle', color: '#FF4757' }, // 赤
+        { id: 'square', color: '#1E90FF' }, // 青
+        { id: 'rect', color: '#2ED573' },   // 緑
+        { id: 'triangle', color: '#ECCC68' },// 黄
+        { id: 'star', color: '#FF7F50' },   // オレンジ
+        { id: 'diamond', color: '#A29BFE' },// 紫
+        { id: 'hexagon', color: '#747D8C' } // グレー
     ];
 
-    let score = 0;
     let timeLeft = 30;
     let level = 1;
     let gameActive = false;
@@ -65,7 +68,16 @@
         board.style.display = 'block';
         gameActive = true;
         initLevel();
-        startCountdown();
+        const timerId = setInterval(() => {
+            if (timeLeft <= 0) {
+                gameActive = false;
+                clearInterval(timerId);
+                alert("タイムアップ！ 到達レベル: " + level);
+                location.reload();
+            }
+            timeLeft--;
+            timerEl.innerText = Math.max(0, timeLeft);
+        }, 1000);
     }
 
     function initLevel() {
@@ -73,8 +85,8 @@
         const correct = shapeConfigs[Math.floor(Math.random() * shapeConfigs.length)];
         updateTargetUI(correct);
 
-        const count = 30 + (level * 5); // レベルアップで増える
-        createShape(correct, true); // 1つだけ正解
+        const count = 30 + (level * 7); // レベルごとに密度アップ
+        createShape(correct, true);
 
         for (let i = 0; i < count; i++) {
             let wrong;
@@ -88,19 +100,21 @@
     function createShape(config, isCorrect) {
         const div = document.createElement('div');
         div.className = `shape ${config.id}`;
-        const size = 45;
         
-        div.style.left = Math.random() * (board.clientWidth - 60) + 'px';
-        div.style.top = Math.random() * (board.clientHeight - 60) + 'px';
+        // 重なりを考慮したランダム配置
+        div.style.left = Math.random() * (board.clientWidth - 80) + 'px';
+        div.style.top = Math.random() * (board.clientHeight - 80) + 'px';
         
         if (config.id === 'triangle') {
             div.style.borderLeft = '22px solid transparent';
             div.style.borderRight = '22px solid transparent';
             div.style.borderBottom = `45px solid ${config.color}`;
         } else {
-            div.style.width = size + 'px';
-            div.style.height = size + 'px';
             div.style.backgroundColor = config.color;
+            if (config.id !== 'rect' && config.id !== 'diamond') {
+                div.style.width = '45px';
+                div.style.height = '45px';
+            }
         }
 
         div.onclick = () => {
@@ -108,11 +122,11 @@
             if (isCorrect) {
                 level++;
                 levelEl.innerText = level;
-                timeLeft += 2;
+                timeLeft += 3; // 正解ボーナス
                 initLevel();
             } else {
-                timeLeft -= 3;
-                div.style.visibility = 'hidden'; // 間違えたら消える
+                timeLeft -= 5; // お手つきペナルティを厳しめに
+                div.style.visibility = 'hidden';
             }
         };
         board.appendChild(div);
@@ -120,27 +134,10 @@
 
     function updateTargetUI(config) {
         targetUI.className = `target-symbol ${config.id}`;
-        if (config.id === 'triangle') {
-            targetUI.style.borderLeft = '20px solid transparent';
-            targetUI.style.borderRight = '20px solid transparent';
-            targetUI.style.borderBottom = `40px solid ${config.color}`;
-        } else {
-            targetUI.style.backgroundColor = config.color;
-            targetUI.style.border = "none";
-        }
-    }
-
-    function startCountdown() {
-        const timerId = setInterval(() => {
-            if (timeLeft <= 0) {
-                gameActive = false;
-                clearInterval(timerId);
-                alert("タイムアップ！ レベル: " + level);
-                location.reload();
-            }
-            timeLeft--;
-            timerEl.innerText = Math.max(0, timeLeft);
-        }, 1000);
+        targetUI.style.backgroundColor = (config.id === 'triangle') ? 'transparent' : config.color;
+        targetUI.style.borderBottom = (config.id === 'triangle') ? `40px solid ${config.color}` : 'none';
+        targetUI.style.borderLeft = (config.id === 'triangle') ? '20px solid transparent' : 'none';
+        targetUI.style.borderRight = (config.id === 'triangle') ? '20px solid transparent' : 'none';
     }
 </script>
 </body>
