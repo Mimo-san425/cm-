@@ -2,35 +2,38 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>図形を探せ！</title>
+    <title>図形ウォンテッド！</title>
     <style>
-        body { text-align: center; font-family: 'Comic Sans MS', sans-serif; background: #222; color: white; margin: 0; }
-        .header { background: #444; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        #game-board { 
-            position: relative; width: 90vw; height: 70vh; 
-            margin: 20px auto; background: #333; border: 4px solid #555; overflow: hidden;
-        }
-        .shape { 
-            position: absolute; cursor: pointer; transition: transform 0.1s; 
-            display: flex; align-items: center; justify-content: center;
-        }
-        .shape:hover { transform: scale(1.1); filter: brightness(1.2); }
-        .target-box { font-size: 28px; margin-bottom: 10px; }
-        .target-symbol { display: inline-block; vertical-align: middle; margin-left: 10px; }
-        #timer { color: #ff4757; font-size: 32px; font-weight: bold; }
+        body { text-align: center; font-family: 'Arial Black', sans-serif; background: #1a1a1a; color: white; margin: 0; overflow: hidden; }
+        .header { background: #333; padding: 15px; border-bottom: 4px solid #555; height: 80px; }
+        #game-board { position: relative; width: 95vw; height: calc(100vh - 150px); margin: 10px auto; background: #222; border-radius: 10px; display: none; }
         
-        /* 各種図形の描画用クラス */
+        /* スタート画面 */
+        #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .start-btn { padding: 20px 50px; font-size: 30px; background: #ff4757; color: white; border: none; border-radius: 50px; cursor: pointer; transition: 0.2s; }
+        .start-btn:hover { background: #ff6b81; transform: scale(1.1); }
+
+        .shape { position: absolute; cursor: pointer; }
+        .target-symbol { display: inline-block; vertical-align: middle; width: 40px; height: 40px; }
+        #timer { color: #ff4757; font-size: 30px; }
+
+        /* 各図形の描画スタイル */
         .circle { border-radius: 50%; }
         .star { clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
         .diamond { transform: rotate(45deg); }
+        .triangle { width: 0 !important; height: 0 !important; background: transparent !important; }
     </style>
 </head>
 <body>
 
+<div id="start-screen">
+    <h1>図形ウォンテッド！</h1>
+    <p>指定された図形を1つだけ探そう</p>
+    <button class="start-btn" onclick="startGame()">ゲームスタート！</button>
+</div>
+
 <div class="header">
-    <div class="target-box">
-        さがせ！：<div id="target-ui" class="target-symbol"></div>
-    </div>
+    <div id="target-box">さがせ！：<div id="target-ui" class="target-symbol"></div></div>
     <div>Time: <span id="timer">30</span> | Level: <span id="level">1</span></div>
 </div>
 
@@ -38,42 +41,46 @@
 
 <script>
     const board = document.getElementById('game-board');
+    const startScreen = document.getElementById('start-screen');
     const targetUI = document.getElementById('target-ui');
     const timerEl = document.getElementById('timer');
     const levelEl = document.getElementById('level');
 
+    // 色かぶりを防ぐため、形ごとに完全に違う色を固定
     const shapeConfigs = [
-        { id: 'circle', color: '#ff4757' },
-        { id: 'square', color: '#1e90ff' },
-        { id: 'triangle', color: '#2ed573' },
-        { id: 'star', color: '#ffa502' },
-        { id: 'diamond', color: '#e056fd' }
+        { id: 'circle', color: '#FF0000', name: 'あかまる' },
+        { id: 'square', color: '#00FF00', name: 'みどりしかく' },
+        { id: 'triangle', color: '#FFFF00', name: 'きいろさんかく' },
+        { id: 'star', color: '#FF00FF', name: 'ぴんくほし' },
+        { id: 'diamond', color: '#00FFFF', name: 'みずいろダイヤ' }
     ];
 
     let score = 0;
     let timeLeft = 30;
     let level = 1;
+    let gameActive = false;
+
+    function startGame() {
+        startScreen.style.display = 'none';
+        board.style.display = 'block';
+        gameActive = true;
+        initLevel();
+        startCountdown();
+    }
 
     function initLevel() {
         board.innerHTML = '';
-        // 正解を1つ選ぶ
         const correct = shapeConfigs[Math.floor(Math.random() * shapeConfigs.length)];
-        
-        // 正解表示の更新
         updateTargetUI(correct);
 
-        // 図形をたくさん配置（レベルが上がるごとに増える）
-        const count = 20 + (level * 10);
-        
-        // 1つだけ正解を配置
-        createShape(correct, true);
-        
-        // 残りはハズレを配置
+        const count = 30 + (level * 5); // レベルアップで増える
+        createShape(correct, true); // 1つだけ正解
+
         for (let i = 0; i < count; i++) {
             let wrong;
             do {
                 wrong = shapeConfigs[Math.floor(Math.random() * shapeConfigs.length)];
-            } while (wrong.id === correct.id); // 正解と同じ形は出さない
+            } while (wrong.id === correct.id); 
             createShape(wrong, false);
         }
     }
@@ -81,32 +88,31 @@
     function createShape(config, isCorrect) {
         const div = document.createElement('div');
         div.className = `shape ${config.id}`;
-        const size = 50;
+        const size = 45;
         
-        // ランダム配置
-        div.style.left = Math.random() * (board.clientWidth - size) + 'px';
-        div.style.top = Math.random() * (board.clientHeight - size) + 'px';
-        div.style.width = size + 'px';
-        div.style.height = size + 'px';
-        div.style.backgroundColor = config.color;
-
-        // 三角形だけは別処理
+        div.style.left = Math.random() * (board.clientWidth - 60) + 'px';
+        div.style.top = Math.random() * (board.clientHeight - 60) + 'px';
+        
         if (config.id === 'triangle') {
-            div.style.backgroundColor = 'transparent';
-            div.style.borderLeft = '25px solid transparent';
-            div.style.borderRight = '25px solid transparent';
-            div.style.borderBottom = `50px solid ${config.color}`;
+            div.style.borderLeft = '22px solid transparent';
+            div.style.borderRight = '22px solid transparent';
+            div.style.borderBottom = `45px solid ${config.color}`;
+        } else {
+            div.style.width = size + 'px';
+            div.style.height = size + 'px';
+            div.style.backgroundColor = config.color;
         }
 
         div.onclick = () => {
+            if (!gameActive) return;
             if (isCorrect) {
                 level++;
                 levelEl.innerText = level;
-                timeLeft += 2; // ボーナス時間
+                timeLeft += 2;
                 initLevel();
             } else {
-                timeLeft -= 3; // ペナルティ
-                div.style.opacity = '0.3'; // 間違えたやつを半透明に
+                timeLeft -= 3;
+                div.style.visibility = 'hidden'; // 間違えたら消える
             }
         };
         board.appendChild(div);
@@ -114,29 +120,28 @@
 
     function updateTargetUI(config) {
         targetUI.className = `target-symbol ${config.id}`;
-        targetUI.style.width = '40px';
-        targetUI.style.height = '40px';
-        targetUI.style.backgroundColor = config.color;
         if (config.id === 'triangle') {
-            targetUI.style.backgroundColor = 'transparent';
             targetUI.style.borderLeft = '20px solid transparent';
             targetUI.style.borderRight = '20px solid transparent';
             targetUI.style.borderBottom = `40px solid ${config.color}`;
+        } else {
+            targetUI.style.backgroundColor = config.color;
+            targetUI.style.border = "none";
         }
     }
 
-    // カウントダウン
-    const timerId = setInterval(() => {
-        timeLeft--;
-        timerEl.innerText = Math.max(0, timeLeft);
-        if (timeLeft <= 0) {
-            clearInterval(timerId);
-            alert("GAME OVER! 到達レベル: " + level);
-            location.reload();
-        }
-    }, 1000);
-
-    initLevel();
+    function startCountdown() {
+        const timerId = setInterval(() => {
+            if (timeLeft <= 0) {
+                gameActive = false;
+                clearInterval(timerId);
+                alert("タイムアップ！ レベル: " + level);
+                location.reload();
+            }
+            timeLeft--;
+            timerEl.innerText = Math.max(0, timeLeft);
+        }, 1000);
+    }
 </script>
 </body>
 </html>
