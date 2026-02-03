@@ -2,21 +2,31 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>図形をさがせ！Plus</title>
+    <title>図形を探せ ！Free</title>
     <style>
         body { text-align: center; font-family: 'Arial Black', sans-serif; background: #1a1a1a; color: white; margin: 0; overflow: hidden; }
         .header { background: #333; padding: 15px; border-bottom: 4px solid #555; height: 80px; }
         #game-board { position: relative; width: 95vw; height: calc(100vh - 180px); margin: 10px auto; background: #222; border-radius: 10px; display: none; }
         
         #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .start-btn { padding: 20px 50px; font-size: 30px; background: #ff4757; color: white; border: none; border-radius: 50px; cursor: pointer; transition: 0.2s; }
-        .start-btn:hover { background: #ff6b81; transform: scale(1.1); }
+        .start-btn { padding: 20px 50px; font-size: 30px; background: #2ed573; color: white; border: none; border-radius: 50px; cursor: pointer; transition: 0.2s; }
+        .start-btn:hover { background: #7bed9f; transform: scale(1.1); }
 
-        .shape { position: absolute; cursor: pointer; }
+        .shape { position: absolute; cursor: pointer; transition: transform 0.1s; }
         .target-symbol { display: inline-block; vertical-align: middle; width: 40px; height: 40px; }
-        #timer { color: #ff4757; font-size: 30px; }
+        #timer { color: #ffffff; font-size: 30px; } /* 時間は見やすく白に */
 
-        /* 図形ごとのスタイル定義 */
+        /* 間違えた時のアニメーション */
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(5px); }
+            50% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+            100% { transform: translateX(0); }
+        }
+        .shake-ani { animation: shake 0.3s; }
+
+        /* 図形のスタイル */
         .circle { border-radius: 50%; }
         .square { width: 45px; height: 45px; }
         .rect { width: 65px !important; height: 35px !important; }
@@ -29,8 +39,8 @@
 <body>
 
 <div id="start-screen">
-    <h1>図形をさがせ！</h1>
-    <p>六角形や長方形もまざっているぞ！</p>
+    <h1>図形を探せ！</h1>
+    <p>お手つきしても大丈夫！たくさん見つけよう</p>
     <button class="start-btn" onclick="startGame()">ゲームスタート！</button>
 </div>
 
@@ -48,15 +58,14 @@
     const timerEl = document.getElementById('timer');
     const levelEl = document.getElementById('level');
 
-    // 図形設定を拡張
     const shapeConfigs = [
-        { id: 'circle', color: '#FF4757' }, // 赤
-        { id: 'square', color: '#1E90FF' }, // 青
-        { id: 'rect', color: '#2ED573' },   // 緑
-        { id: 'triangle', color: '#ECCC68' },// 黄
-        { id: 'star', color: '#FF7F50' },   // オレンジ
-        { id: 'diamond', color: '#A29BFE' },// 紫
-        { id: 'hexagon', color: '#747D8C' } // グレー
+        { id: 'circle', color: '#FF4757' },
+        { id: 'square', color: '#1E90FF' },
+        { id: 'rect', color: '#2ED573' },
+        { id: 'triangle', color: '#ECCC68' },
+        { id: 'star', color: '#FF7F50' },
+        { id: 'diamond', color: '#A29BFE' },
+        { id: 'hexagon', color: '#747D8C' }
     ];
 
     let timeLeft = 30;
@@ -69,14 +78,14 @@
         gameActive = true;
         initLevel();
         const timerId = setInterval(() => {
+            timeLeft--;
+            timerEl.innerText = Math.max(0, timeLeft);
             if (timeLeft <= 0) {
                 gameActive = false;
                 clearInterval(timerId);
-                alert("タイムアップ！ 到達レベル: " + level);
+                alert("おしまい！ 見つけた数（レベル）: " + (level - 1));
                 location.reload();
             }
-            timeLeft--;
-            timerEl.innerText = Math.max(0, timeLeft);
         }, 1000);
     }
 
@@ -85,7 +94,7 @@
         const correct = shapeConfigs[Math.floor(Math.random() * shapeConfigs.length)];
         updateTargetUI(correct);
 
-        const count = 30 + (level * 7); // レベルごとに密度アップ
+        const count = 30 + (level * 5); 
         createShape(correct, true);
 
         for (let i = 0; i < count; i++) {
@@ -101,7 +110,6 @@
         const div = document.createElement('div');
         div.className = `shape ${config.id}`;
         
-        // 重なりを考慮したランダム配置
         div.style.left = Math.random() * (board.clientWidth - 80) + 'px';
         div.style.top = Math.random() * (board.clientHeight - 80) + 'px';
         
@@ -122,11 +130,11 @@
             if (isCorrect) {
                 level++;
                 levelEl.innerText = level;
-                timeLeft += 3; // 正解ボーナス
                 initLevel();
             } else {
-                timeLeft -= 5; // お手つきペナルティを厳しめに
-                div.style.visibility = 'hidden';
+                // ペナルティなし。代わりに「プルプル」させる
+                div.classList.add('shake-ani');
+                setTimeout(() => div.classList.remove('shake-ani'), 300);
             }
         };
         board.appendChild(div);
