@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>図形探しICTゲーム</title>
+    <style>
+        body { text-align: center; font-family: 'Helvetica Neue', Arial, sans-serif; background: #eef2f3; margin: 0; padding: 20px; }
+        .header { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        #game-board { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); 
+            gap: 15px; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px;
+        }
+        .shape-container { 
+            height: 80px; display: flex; align-items: center; justify-content: center; 
+            cursor: pointer; border: 1px solid #eee; border-radius: 8px; transition: 0.2s;
+        }
+        .shape-container:hover { background: #f0f8ff; transform: scale(1.05); }
+        
+        /* 図形のスタイル */
+        .circle { border-radius: 50%; }
+        .square { border-radius: 0%; }
+        .triangle { width: 0; height: 0; background: none !important; border-left: 25px solid transparent; border-right: 25px solid transparent; }
+
+        .info-text { font-size: 24px; font-weight: bold; color: #333; }
+        .target-name { color: #e74c3c; font-size: 32px; border-bottom: 3px solid; }
+        #timer { color: #f39c12; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="info-text">
+        <span id="target-name" class="target-name">準備中</span> をさがせ！
+    </div>
+    <div class="info-text">
+        残り時間: <span id="timer">30</span>秒 | スコア: <span id="score">0</span>
+    </div>
+</div>
+
+<div id="game-board"></div>
+
+<script>
+    const board = document.getElementById('game-board');
+    const targetEl = document.getElementById('target-name');
+    const timerEl = document.getElementById('timer');
+    const scoreEl = document.getElementById('score');
+
+    const shapes = [
+        { id: 'circle', name: 'まる' },
+        { id: 'square', name: 'しかく' },
+        { id: 'triangle', name: 'さんかく' }
+    ];
+
+    let score = 0;
+    let timeLeft = 30;
+    let currentTarget;
+    let gameActive = true;
+
+    function initGame() {
+        // ターゲットをランダムに決定
+        currentTarget = shapes[Math.floor(Math.random() * shapes.length)];
+        targetEl.innerText = currentTarget.name;
+        renderBoard();
+        startTimer();
+    }
+
+    function renderBoard() {
+        board.innerHTML = '';
+        // 40個の図形を生成
+        for (let i = 0; i < 40; i++) {
+            const randomShape = shapes[Math.floor(Math.random() * shapes.length)];
+            const container = document.createElement('div');
+            container.className = 'shape-container';
+            
+            const shapeDiv = document.createElement('div');
+            const color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+            
+            // 図形ごとのCSS設定
+            if (randomShape.id === 'triangle') {
+                shapeDiv.className = 'triangle';
+                shapeDiv.style.borderBottom = `50px solid ${color}`;
+            } else {
+                shapeDiv.className = randomShape.id;
+                shapeDiv.style.width = '50px';
+                shapeDiv.style.height = '50px';
+                shapeDiv.style.backgroundColor = color;
+            }
+
+            container.onclick = () => {
+                if (!gameActive) return;
+                if (randomShape.id === currentTarget.id) {
+                    score++;
+                    scoreEl.innerText = score;
+                    // 正解したらターゲットを入れ替えて再配置
+                    currentTarget = shapes[Math.floor(Math.random() * shapes.length)];
+                    targetEl.innerText = currentTarget.name;
+                    renderBoard();
+                } else {
+                    // お手つきペナルティ（時間を減らすなど）
+                    timeLeft = Math.max(0, timeLeft - 2);
+                }
+            };
+
+            container.appendChild(shapeDiv);
+            board.appendChild(container);
+        }
+    }
+
+    function startTimer() {
+        const timerId = setInterval(() => {
+            if (!gameActive) return;
+            timeLeft--;
+            timerEl.innerText = timeLeft;
+            if (timeLeft <= 0) {
+                gameActive = false;
+                clearInterval(timerId);
+                alert(`タイムアップ！あなたのスコアは ${score} 点です。`);
+                location.reload();
+            }
+        }, 1000);
+    }
+
+    initGame();
+</script>
+</body>
+</html>
